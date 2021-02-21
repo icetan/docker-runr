@@ -1,0 +1,121 @@
+#!/bin/bash
+set -eo pipefail
+
+if [[ -n $RUNR_DEBUG ]]; then
+  set -x
+fi
+
+# MAPR_
+
+for varMap in ${!MAPR_*}; do
+  varFrom="${varMap#MAPR_}"
+  [[ -v $varFrom ]] || continue
+
+  varTo="${!varMap}"
+  eval "${varTo}='${!varFrom}'"
+done
+
+# FILR_
+
+for varFileOut in ${!FILR_OUT_*}; do
+  varFileSuffix="${varFileOut#FILR_OUT_}"
+  varFileIn="FILR_IN_$varFileSuffix"
+  [[ -v $varFileIn ]] || continue
+
+  varFileMod="FILR_MOD_$varFileSuffix"
+  varFileOwn="FILR_OWN_$varFileSuffix"
+  fileOut="${!varFileOut}"
+
+  echo >&2 "Creating file from ENV $varFileIn -> $fileOut"
+
+  mkdir -p $(dirname "$fileOut")
+  printf %s "${!varFileIn}" > "$fileOut"
+
+  if [[ -v $varFileMod ]]; then
+    chmod "${!varFileMod}" "$fileOut"
+  fi
+  if [[ -v $varFileOwn ]]; then
+    chown "${!varFileOwn}" "$fileOut"
+  fi
+done
+
+# JSNR_
+
+envToJsonPath() {
+  local confPath
+  confPath="_$1"
+  confPath="${confPath//__/\"][][\"}"
+  confPath="${confPath//_/\"][\"}"
+  printf %s ".${confPath#\"]}\"]"
+}
+
+for varOut in ${!JSNR_OUT_*}; do
+  outPath="${!varOut}"
+  prefix="JSNR_${varOut#JSNR_OUT_}"
+
+  varJqQuery=${prefix}_JQ
+  jqQuery="${!varJqQuery}"
+  jqArgs=()
+
+  query="${jqQuery:-.}"
+  for varConf in $(eval "echo \${!${prefix}_*}"); do
+    opPath=${varConf#${prefix}_}
+    confType=${opPath%%_*}
+    confPath=$(envToJsonPath ${opPath#${confType}_})
+
+    if [[ -n "${!varConf}" ]]; then
+      case $confType in
+        SET)
+          jqArgs+=(--argjson $opPath "${!varConf}")
+          query+="
+          | $confPath = \$$opPath";;
+        MUL)
+          jqArgs+=(--argjson $opPath "${!varConf}")
+          query+="
+          | $confPath *= \$$opPath";;
+        ADD)
+          jqArgs+=(--argjson $opPath "${!varConf}")
+          query+="
+          | $confPath += \$$opPath";;
+        STR)
+          jqArgs+=(--arg $opPath "${!varConf}")
+          query+="
+          | $confPath = \$$opPath";;
+        *)
+          echo >&2 "Error: $contType isn't a supported JSNR operand: $varConf";;
+      esac
+    else
+      query+="
+      | del($confPath)"
+    fi
+  done
+
+  varSet=${prefix}_SET
+  varIn="JSNR_IN_${prefix#JSNR_}"
+  inFile=${!varIn}
+  conf="${!varSet}"
+  if [[ -z $conf && -f $inFile ]]; then
+    conf=$(cat "$inFile")
+  fi
+  if [[ -z $conf && -f $outPath ]]; then
+    conf=$(cat "$outPath")
+  fi
+  if [[ -z $conf ]]; then
+    echo >&2 "Error: $varSet, $inFile and $outPath are empty."
+    exit 1
+  fi
+
+  echo >&2 "Creating JSON file from ENV ${prefix}_* -> $outPath"
+  jq "${jqArgs[@]}" "$query" <<<"$conf" > "$outPath"
+done
+
+# SCTR_
+
+for phase in ${!SCTR_*}; do
+  echo >&2 "Running script ${phase}"
+  eval "${!phase}"
+done
+
+# RUNR_
+
+exec "$@"
