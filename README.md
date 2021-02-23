@@ -41,15 +41,20 @@ FILR_OWN_config=some_user:some_group
 ## Manipulate JSON Files
 
 ```
-<ID>                  To use as id for manipulation
-<PROP>                A JSON property or path, sub-properties are delimited by _
+<ID>                  To use as id for manipulations
+<PROP>                A JSON property/path, sub-properties are delimited by _
                       and arrays are iterated with __
+<VAR>                 jq variable name
 
-JSNR_OUT_<ID>         Path to file to manipulate
-JSNR_IN_<ID>          File to use as input (defaults to value of JSNR_OUT_<ID>)
-JSNR_<ID>_SET         JSON value to set whole file to
+JSNR_OUT_<ID>         Path to write JSON file to
+JSNR_IN_<ID>          Path to JSON file to use as input (defaults to value of JSNR_OUT_<ID>)
+JSNR_<ID>_SET         JSON value to use as input (overrides JSNR_IN_<ID>)
+JSNR_<ID>_JQ          jq script to execute on JSON input (default: .)
+JSNR_<ID>_ARG_<VAR>   JSON value to give jq as argument with variable name VAR
 JSNR_<ID>_SET_<PROP>  JSON value to set PROP to
 JSNR_<ID>_STR_<PROP>  String to set PROP to
+JSNR_<ID>_MUL_<PROP>  JSON value to multiply PROP with
+JSNR_<ID>_ADD_<PROP>  JSON value to add PROP with
 ```
 
 E.g. update the `a` and `b` properties of `/root/config.json`:

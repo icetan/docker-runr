@@ -61,33 +61,42 @@ for varOut in ${!JSNR_OUT_*}; do
   for varConf in $(eval "echo \${!${prefix}_*}"); do
     opPath=${varConf#${prefix}_}
     confType=${opPath%%_*}
-    confPath=$(envToJsonPath ${opPath#${confType}_})
+    confSuffix=${opPath#${confType}_}
+    confPath=$(envToJsonPath $confSuffix)
 
-    if [[ -n "${!varConf}" ]]; then
-      case $confType in
-        SET)
-          jqArgs+=(--argjson $opPath "${!varConf}")
+    case $confType in
+      ARG)
+        jqArgs+=(--argjson $confSuffix "${!varConf}")
+        ;;
+      SET)
+        if [[ -n "${!varConf}" ]]; then
+          jqArgs+=(--argjson $varConf "${!varConf}")
           query+="
-          | $confPath = \$$opPath";;
-        MUL)
-          jqArgs+=(--argjson $opPath "${!varConf}")
+          | $confPath = \$$varConf"
+        else
           query+="
-          | $confPath *= \$$opPath";;
-        ADD)
-          jqArgs+=(--argjson $opPath "${!varConf}")
-          query+="
-          | $confPath += \$$opPath";;
-        STR)
-          jqArgs+=(--arg $opPath "${!varConf}")
-          query+="
-          | $confPath = \$$opPath";;
-        *)
-          echo >&2 "Error: $contType isn't a supported JSNR operand: $varConf";;
-      esac
-    else
-      query+="
-      | del($confPath)"
-    fi
+          | del($confPath)"
+        fi
+        ;;
+      MUL)
+        jqArgs+=(--argjson $varConf "${!varConf}")
+        query+="
+        | $confPath *= \$$varConf"
+        ;;
+      ADD)
+        jqArgs+=(--argjson $varConf "${!varConf}")
+        query+="
+        | $confPath += \$$varConf"
+        ;;
+      STR)
+        jqArgs+=(--arg $varConf "${!varConf}")
+        query+="
+        | $confPath = \$$varConf"
+        ;;
+      *)
+        echo >&2 "Error: $contType isn't a supported JSNR operand: $varConf"
+        ;;
+    esac
   done
 
   varSet=${prefix}_SET
