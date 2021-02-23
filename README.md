@@ -24,13 +24,18 @@ ENTRYPOINT [ "/bin/runr" ]
 
 FILR_OUT_<ID>  Path to write file to
 FILR_IN_<ID>   String to put in file
+FILR_MOD_<ID>  Set file chmod
+FILR_OWN_<ID>  Set owner of file
 ```
 
-E.g. create a simple text file:
+E.g. create a simple text file with read-write access for `some_user` and
+read-only access for `some_group`:
 
 ```sh
 FILR_OUT_config=/root/config
 FILR_IN_config="This will be written to the file /root/config"
+FILR_MOD_config=0600
+FILR_OWN_config=some_user:some_group
 ```
 
 ## Manipulate JSON Files
